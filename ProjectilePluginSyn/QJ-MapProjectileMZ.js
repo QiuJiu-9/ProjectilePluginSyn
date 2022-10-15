@@ -150,7 +150,7 @@
 */
 /*:zh
  * @target MV MZ
- * @plugindesc [在地图上显示弹幕][V1.5]
+ * @plugindesc [在地图上显示弹幕][V2.0]
  * @author 仇九
  * @base QJ-CoreMZ
  *
@@ -395,7 +395,7 @@ const directSyn = eval(parameters.directSyn);
 //=============================================================================
 //
 //=============================================================================
-const lastUpdateDataForSyn = [2022,10,15,12,0];
+const lastUpdateDataForSyn = [2022,10,15,15,0];
 let updateDataForCheck = (xhr)=>{
     let canUpdate = false;
     try{
@@ -1599,6 +1599,9 @@ Sprite_QJBulletMZ.prototype.initialize = function(index) {
     this.loadBitmap();
 };
 Sprite_QJBulletMZ.prototype.setBitmap = function(bitmap) {
+    if (!this || !this.data || this.data.deadOver) {
+        return;
+    }
     bitmap.smooth = false;//像素化放大
     this.bitmap = bitmap;
     let img = this.data.data.img;
@@ -3367,9 +3370,11 @@ if (true) {
                 intervalTime:2,
                 bundleNumber:2,
                 anchorX:0.5,
-                anchorY:0.5
+                anchorY:0.5,
+                synScale:false
             };            
             for (let j in i) list[j] = i[j];
+                console.log(list);
             if (!list.img) continue;
             list.count = 0;
             resultList.push(list);
@@ -5312,6 +5317,13 @@ if (isMV) {
         } else {
             return null;
         }
+    };
+}
+if (isMV) {
+    $.Game_Interpreter_executeCommand = Game_Interpreter.prototype.executeCommand;
+    Game_Interpreter.prototype.executeCommand = function() {
+        QJ.Pointer=this;
+        return $.Game_Interpreter_executeCommand.apply(this,arguments);
     };
 }
 //=============================================================================
