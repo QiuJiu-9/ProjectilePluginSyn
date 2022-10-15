@@ -2,7 +2,7 @@
 // RPG Maker MV
 //=============================================================================
 /*:
- * @plugindesc 弹幕插件[V8.6][22-10-14]
+ * @plugindesc 弹幕插件[V8.7][22-10-15]
  * @author Qiu Jiu
  * 
  *
@@ -52,6 +52,8 @@
  * 5.增加动态决定是否启用粒子，拖尾和灯光的功能。
  *
  * 6.与移植到mv的mz的弹幕插件适配。
+ *
+ * 7.增加自动更新功能
  *
  *
  * ================================================================
@@ -1014,6 +1016,25 @@
  * @default 30
  * @parent ======根据帧率显示特效======
  *
+ * @param ======自动更新======
+ * @default
+ *
+ * @param synAuto
+ * @type boolean
+ * @text 自动更新
+ * @desc 自动更新，在制作工程时建议开启，在正式发布游戏时建议关闭。
+ * @default false
+ * @parent ======自动更新======
+ *
+ * @param directSyn
+ * @type boolean
+ * @text 主动更新
+ * @on 直接自主更新
+ * @off 单纯提示更新
+ * @desc 可以选择是直接自主更新，还是仅仅提示您需要更新
+ * @default true
+ * @parent ======自动更新======
+ *
 */
 /*~struct~persetdataType:
  *
@@ -1672,6 +1693,88 @@ TouchInput._onMouseMove = function(event) {
     mouseX = Graphics.pageToCanvasX(event.pageX);
     mouseY = Graphics.pageToCanvasY(event.pageY);
 };
+//=============================================================================
+//
+//=============================================================================
+const synAuto = eval(parameters.synAuto);
+const directSyn = eval(parameters.directSyn);
+//=============================================================================
+//
+//=============================================================================
+const lastUpdateDataForSyn = [2022,10,15,12,0];
+let updateDataForCheck = (xhr)=>{
+    let canUpdate = false;
+    try{
+        let jsonData = JSON.parse(xhr.responseText);
+        let nowUpdateData = jsonData.lastUpdateData;
+        //console.log(lastUpdateDataForSyn,nowUpdateData);
+        for (let i=0;i<5;i++) {
+            if (nowUpdateData[i]>lastUpdateDataForSyn[i]) {
+                canUpdate = true;
+                break;
+            } else if (nowUpdateData[i]<lastUpdateDataForSyn[i]) {
+                break;
+            }
+        }
+    } catch(e) {
+        //更新数据有
+        canUpdate = false;
+    }
+    return canUpdate;
+};
+let updatePluginData = ()=>{
+    if (directSyn) {
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", "https://raw.githubusercontent.com/QiuJiu-9/ProjectilePluginSyn/main/ProjectilePluginSyn/QJ-Bullet.js", true);
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState == 4) {
+                if (xhr.status == 200 || xhr.status == 0) {
+                    if (xhr.responseText.length>0) {
+                        let fs = require("fs");
+                        fs.writeFileSync("js/plugins/QJ-Bullet.js",xhr.responseText,()=>{
+                            throw new Error("QJ-Bullet.js自动更新出错，请关闭QJ-Bullet.js的自动更新功能。");
+                        });
+                        alert("QJ-Bullet.js已更新完成，请在插件管理器中重新打开插件来刷新插件参数。");
+                        window.close();
+                    }
+                }
+                xhr.onreadystatechange = ()=>{};
+                xhr = null;
+            } else if (xhr.readyState == 404) {
+                xhr.onreadystatechange = ()=>{};
+                xhr = null;
+            }
+        }
+        xhr.send(null);
+    } else {
+        alert("QJ-Bullet.js可更新。");
+    }
+};
+//=============================================================================
+//
+//=============================================================================
+if (synAuto && !!nw) {
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "https://raw.githubusercontent.com/QiuJiu-9/ProjectilePluginSyn/main/ProjectilePluginSyn/versionMessage.json", true);
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState == 4) {
+            if (xhr.status == 200 || xhr.status == 0) {
+                if (updateDataForCheck(xhr)) {
+                    updatePluginData();
+                }
+            } else {
+                console.warn("QJ-Bullet.js开启了自动更新，但是无法连接到更新地址。");
+            }
+            xhr.onreadystatechange = ()=>{};
+            xhr = null;
+        } else if (xhr.readyState == 404) {
+            console.warn("QJ-Bullet.js开启了自动更新，但是无法连接到更新地址。");
+            xhr.onreadystatechange = ()=>{};
+            xhr = null;
+        }
+    }
+    xhr.send(null);
+}
 //=============================================================================
 //
 //=============================================================================
