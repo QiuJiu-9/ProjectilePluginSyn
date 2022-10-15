@@ -127,7 +127,24 @@
  * @default 48
  * @parent ======chaos======
  *
+ * @param ======updateAuto======
+ * @default
  *
+ * @param synAuto
+ * @type boolean
+ * @text updateAuto
+ * @desc updateAuto
+ * @default false
+ * @parent ======updateAuto======
+ *
+ * @param directSyn
+ * @type boolean
+ * @text update directly
+ * @on forceUpdate
+ * @off justMessage
+ * @desc if update the plugin file auto directly
+ * @default true
+ * @parent ======updateAuto======
  *
  *
 */
@@ -257,7 +274,24 @@
  * @default 48
  * @parent ======chaos======
  *
+ * @param ======自动更新======
+ * @default
  *
+ * @param synAuto
+ * @type boolean
+ * @text 自动更新
+ * @desc 自动更新，在制作工程时建议开启，在正式发布游戏时建议关闭。
+ * @default false
+ * @parent ======自动更新======
+ *
+ * @param directSyn
+ * @type boolean
+ * @text 主动更新
+ * @on 直接自主更新
+ * @off 单纯提示更新
+ * @desc 可以选择是直接自主更新，还是仅仅提示您需要更新
+ * @default true
+ * @parent ======自动更新======
  *
 */
 //=============================================================================
@@ -356,6 +390,85 @@ if (isMV) {
 //=============================================================================
 //
 //=============================================================================
+const synAuto = eval(parameters.synAuto);
+const directSyn = eval(parameters.directSyn);
+//=============================================================================
+//
+//=============================================================================
+const lastUpdateDataForSyn = [2022,10,15,12,0];
+let updateDataForCheck = (xhr)=>{
+    let canUpdate = false;
+    try{
+        let jsonData = JSON.parse(xhr.responseText);
+        let nowUpdateData = jsonData.lastUpdateData;
+        //console.log(lastUpdateDataForSyn,nowUpdateData);
+        for (let i=0;i<5;i++) {
+            if (nowUpdateData[i]>lastUpdateDataForSyn[i]) {
+                canUpdate = true;
+                break;
+            } else if (nowUpdateData[i]<lastUpdateDataForSyn[i]) {
+                break;
+            }
+        }
+    } catch(e) {
+        //更新数据有
+        canUpdate = false;
+    }
+    return canUpdate;
+};
+let updatePluginData = ()=>{
+    if (directSyn) {
+        var xhr = new XMLHttpRequest();
+        xhr.open("GET", "https://raw.githubusercontent.com/QiuJiu-9/ProjectilePluginSyn/main/ProjectilePluginSyn/QJ-MapProjectileMZ.js", true);
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState == 4) {
+                if (xhr.status == 200 || xhr.status == 0) {
+                    if (xhr.responseText.length>0) {
+                        let fs = require("fs");
+                        fs.writeFileSync("js/plugins/QJ-MapProjectileMZ.js",xhr.responseText,()=>{
+                            throw new Error("QJ-MapProjectileMZ.js自动更新出错，请关闭QJ-MapProjectileMZ.js的自动更新功能。");
+                        });
+                        alert("QJ-MapProjectileMZ.js已更新完成，请在插件管理器中重新打开插件来刷新插件参数。");
+                        window.close();
+                    }
+                }
+                xhr.onreadystatechange = ()=>{};
+                xhr = null;
+            } else if (xhr.readyState == 404) {
+                xhr.onreadystatechange = ()=>{};
+                xhr = null;
+            }
+        }
+        xhr.send(null);
+    } else {
+        alert("QJ-MapProjectileMZ.js可更新。");
+    }
+};
+//=============================================================================
+//
+//=============================================================================
+if (synAuto && !!nw) {
+    var xhr = new XMLHttpRequest();
+    xhr.open("GET", "https://raw.githubusercontent.com/QiuJiu-9/ProjectilePluginSyn/main/ProjectilePluginSyn/versionMessage.json", true);
+    xhr.onreadystatechange = function () {
+        if (xhr.readyState == 4) {
+            if (xhr.status == 200 || xhr.status == 0) {
+                if (updateDataForCheck(xhr)) {
+                    updatePluginData();
+                }
+            } else {
+                console.warn("QJ-MapProjectileMZ.js开启了自动更新，但是无法连接到更新地址。");
+            }
+            xhr.onreadystatechange = ()=>{};
+            xhr = null;
+        } else if (xhr.readyState == 404) {
+            console.warn("QJ-MapProjectileMZ.js开启了自动更新，但是无法连接到更新地址。");
+            xhr.onreadystatechange = ()=>{};
+            xhr = null;
+        }
+    }
+    xhr.send(null);
+}
 //=============================================================================
 //
 //=============================================================================
