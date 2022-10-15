@@ -1,7 +1,0 @@
-[
-null,
-{"id":1,"list":[{"code":101,"indent":0,"parameters":["",0,0,2,"[actorEvent]"]},{"code":401,"indent":0,"parameters":["您好，旅行者。"]},{"code":401,"indent":0,"parameters":["您想干什么呢？"]},{"code":102,"indent":0,"parameters":[["请您加入我的队伍","请详细介绍一下您的能力","取消"],1,0,2,0]},{"code":402,"indent":0,"parameters":[0,"请您加入我的队伍"]},{"code":357,"indent":1,"parameters":["Lan-RaceRopagation","addToParty","使事件角色加入队伍",{}]},{"code":0,"indent":1,"parameters":[]},{"code":402,"indent":0,"parameters":[1,"请详细介绍一下您的能力"]},{"code":357,"indent":1,"parameters":["Lan-RaceRopagation","showActorData","显示角色数据",{}]},{"code":0,"indent":1,"parameters":[]},{"code":402,"indent":0,"parameters":[2,"取消"]},{"code":0,"indent":1,"parameters":[]},{"code":404,"indent":0,"parameters":[]},{"code":0,"indent":0,"parameters":[]}],"name":"角色范例","switchId":1,"trigger":0},
-{"id":2,"list":[{"code":0,"indent":0,"parameters":[]}],"name":"","switchId":1,"trigger":0},
-{"id":3,"list":[{"code":0,"indent":0,"parameters":[]}],"name":"","switchId":1,"trigger":0},
-{"id":4,"list":[{"code":0,"indent":0,"parameters":[]}],"name":"","switchId":1,"trigger":0}
-]
