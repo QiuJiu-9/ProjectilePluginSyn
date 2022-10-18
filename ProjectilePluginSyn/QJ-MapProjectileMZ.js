@@ -395,7 +395,7 @@ const directSyn = eval(parameters.directSyn);
 //=============================================================================
 //
 //=============================================================================
-const lastUpdateDataForSyn = [2022,10,15,15,0];
+const lastUpdateDataForSyn = [2022,10,18,15,0];
 let updateDataForCheck = (xhr)=>{
     let canUpdate = false;
     try{
