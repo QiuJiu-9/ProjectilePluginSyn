@@ -395,12 +395,12 @@ const directSyn = eval(parameters.directSyn);
 //=============================================================================
 //
 //=============================================================================
-const lastUpdateDataForSyn = [2022,10,18,15,0];
+const lastUpdateDataForSyn = [2022,10,18,16,0];
 let updateDataForCheck = (xhr)=>{
     let canUpdate = false;
     try{
         let jsonData = JSON.parse(xhr.responseText);
-        let nowUpdateData = jsonData.lastUpdateData;
+        let nowUpdateData = jsonData.lastUpdateDataQJProjectile;
         //console.log(lastUpdateDataForSyn,nowUpdateData);
         for (let i=0;i<5;i++) {
             if (nowUpdateData[i]>lastUpdateDataForSyn[i]) {

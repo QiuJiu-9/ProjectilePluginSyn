@@ -1701,12 +1701,12 @@ const directSyn = eval(parameters.directSyn);
 //=============================================================================
 //
 //=============================================================================
-const lastUpdateDataForSyn = [2022,10,18,15,0];
+const lastUpdateDataForSyn = [2022,10,18,16,0];
 let updateDataForCheck = (xhr)=>{
     let canUpdate = false;
     try{
         let jsonData = JSON.parse(xhr.responseText);
-        let nowUpdateData = jsonData.lastUpdateData;
+        let nowUpdateData = jsonData.lastUpdateDataQJBullet;
         //console.log(lastUpdateDataForSyn,nowUpdateData);
         for (let i=0;i<5;i++) {
             if (nowUpdateData[i]>lastUpdateDataForSyn[i]) {
@@ -2180,7 +2180,7 @@ Game_QJBullet.prototype.updateRotation = function () {
         let addx=(this.RB6S[0])*data[13]*Math.cos(data[2]);
         let addy=-(this.RB6S[1])*(data[13]*Math.sin(data[2])-data[14]*(data[7]-data[6]));
         this.x = this.x+addx;
-        this.y = data[4]==0?data[16]:(this.y+addy);
+        this.y = this.y+addy;//data[4]==0?data[16]:(this.y+addy);
         QJ.BL.setPostion(this.QJBody,this.x,this.y);
         this.rotationMove = calculateAngleByTwoPoint(0,0,addx,addy);
         this.rM6S = [addx,addy,this.rotationMove];
