@@ -1701,7 +1701,7 @@ const directSyn = eval(parameters.directSyn);
 //=============================================================================
 //
 //=============================================================================
-const lastUpdateDataForSyn = [2022,10,15,12,0];
+const lastUpdateDataForSyn = [2022,10,18,15,0];
 let updateDataForCheck = (xhr)=>{
     let canUpdate = false;
     try{
@@ -5323,7 +5323,7 @@ QJ.BL.setBulletDisappear = function(name) {
             continue;
         }
         if (bullet.data.Name.indexOf(name)>-1) {
-            i.setDeadDisappear();
+            bullet.setDeadDisappear();
         }
     }
 }
