@@ -3413,7 +3413,6 @@ if (true) {
                 synScale:false
             };            
             for (let j in i) list[j] = i[j];
-                console.log(list);
             if (!list.img) continue;
             list.count = 0;
             resultList.push(list);
