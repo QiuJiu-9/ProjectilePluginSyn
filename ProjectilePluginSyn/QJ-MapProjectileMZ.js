@@ -4045,7 +4045,78 @@ QJ.LL.lightObjectFunction["QJMapProjectileMZ"] = {
 //=============================================================================
 //
 //=============================================================================
-
+if (isMV) {
+    $.Game_Event_initialize = Game_Event.prototype.initialize;
+    Game_Event.prototype.initialize = function(mapId, eventId) {
+        this._commonEventQJ = new Array();
+        $.Game_Event_initialize.apply(this,arguments);
+    };
+    Game_Event.prototype.steupCEQJ = function(value,reSetData,extraData) {
+        let listData = this.event().pages[value-1];
+        if (listData) {
+            let interpreter = new Game_InterpreterCEQJ(value-1,reSetData,extraData);
+            interpreter.setup(listData.list,this.eventId());
+            if (!interpreter.isRunning()) interpreter.terminate();
+            this._commonEventQJ.push(interpreter);
+        }
+    };
+    $.Game_Event_updateParallel = Game_Event.prototype.updateParallel;
+    Game_Event.prototype.updateParallel = function() {
+        $.Game_Event_updateParallel.apply(this,arguments);
+        this.updateCEQJ();
+    };
+    Game_Event.prototype.updateCEQJ = function() {
+        if (this._commonEventQJ.length>0) {
+            for (let idata=this._commonEventQJ,il=idata.length,i=0;i<il;i++) {
+                if (idata[i]) {
+                    idata[i].update();
+                    if (idata[i].overLifeQJ) {
+                        idata.splice(i,1);
+                        i--;
+                        il--;
+                    }
+                }
+            }
+        }
+    };
+    //=============================================================================
+    //
+    //=============================================================================
+    $.Game_Map_initialize = Game_Map.prototype.initialize;
+    Game_Map.prototype.initialize = function() {
+        this._commonEventQJ = new Array();
+        $.Game_Map_initialize.apply(this,arguments);
+    };
+    Game_Map.prototype.steupCEQJ = function(value,eid,reSetData,extraData) {
+        if (!!$dataCommonEvents[value]) {
+            let interpreter = new Game_InterpreterCEQJX(value,reSetData||{},extraData||{});
+            interpreter.setup($dataCommonEvents[value].list,eid);
+            if (!interpreter.isRunning()) interpreter.terminate();
+            this._commonEventQJ.push(interpreter);
+        }
+    };
+    $.Game_Map_update = Game_Map.prototype.update;
+    Game_Map.prototype.update = function(sceneActive) {
+        $.Game_Map_update.apply(this,arguments);
+        if (this._commonEventQJ.length>0) {
+            for (let idata=this._commonEventQJ,il=idata.length,i=0;i<il;i++) {
+                if (idata[i]) {
+                    idata[i].update();
+                    if (idata[i].overLifeQJ) {
+                        idata.splice(i,1);
+                        i--;
+                        il--;
+                    }
+                }
+            }
+        }
+    }
+    $.Game_Interpreter_executeCommand = Game_Interpreter.prototype.executeCommand;
+    Game_Interpreter.prototype.executeCommand = function() {
+        QJ.Pointer=this;
+        return $.Game_Interpreter_executeCommand.apply(this,arguments);
+    };
+}
 //=============================================================================
 //
 //=============================================================================
@@ -4952,236 +5023,6 @@ if (QJ.MPMZ.isMV) {
     };
 }
 if (QJ.MPMZ.isMV) {
-    QJ.randomColor = function(start,length) {
-        return QJ.rgbToHex({
-            r:start+Math.floor(Math.random()*length),
-            g:start+Math.floor(Math.random()*length),
-            b:start+Math.floor(Math.random()*length)});
-    }
-    QJ.colorGrad = function(bitmap,content,x,y,w,h,ro = 0,offset = 0) {
-        if (content.constructor == Bitmap) {
-            const grad = bitmap._context.createPattern(content._canvas || content._image,"repeat");
-            if (grad&&grad.setTransform) {
-                grad.setTransform(new DOMMatrix().
-                    translateSelf(x+offset*Math.sin(ro),y-offset*Math.cos(ro),0).
-                    rotateSelf(ro*180/Math.PI));
-            }
-            return grad;
-        } else if (content.includes("|")) {
-            const list=content.split("~");
-            const colorNum = list.length;
-            let k = Math.atan(w/h),diaL = Math.sqrt(w*w+h*h)/2,noSoildRadius;
-            ro = ro%(Math.PI*2);
-            if (ro<Math.PI/2) noSoildRadius = diaL*Math.cos(k-ro);
-            else if (ro<Math.PI) noSoildRadius = -diaL*Math.cos(k+ro);
-            else if (ro<Math.PI*3/2) noSoildRadius = -diaL*Math.cos(k-ro);
-            else noSoildRadius = diaL*Math.cos(k+ro);
-            const grad = bitmap._context.createLinearGradient(
-                Math.floor(x+w/2+noSoildRadius*Math.sin(ro)),Math.floor(y+h/2-noSoildRadius*Math.cos(ro)),
-                Math.floor(x+w/2-noSoildRadius*Math.sin(ro)),Math.floor(y+h/2+noSoildRadius*Math.cos(ro)));
-            if (offset==0) {
-                for(let i=0,detail,point;i<colorNum; i++) {
-                    detail = list[i].split("|");
-                    grad.addColorStop(detail[0],detail[1]);
-                }
-            } else {
-                offset %= 1;//转为小数
-                let hasNotMoveUp = true;
-                //let listConsole = {};
-                for(let i=0,detail,point; i<colorNum; i++) {
-                    detail = list[i].split("|");
-                    detail[0] = Number(detail[0]);
-                    point = Math.floor((detail[0]+offset)*100)/100;
-                    if (hasNotMoveUp&&point>1) {
-                        hasNotMoveUp = false;
-                        let lastColorDetail = list[(i-1<0)?(colorNum-1):(i-1)].split("|");
-                        lastColorDetail[0] = Number(lastColorDetail[0]);
-                        let trueColor = QJ.gradientPointCalculate(lastColorDetail[1],detail[1],(1-lastColorDetail[0]-offset)/(detail[0]-lastColorDetail[0]));
-                        grad.addColorStop(1,trueColor);
-                        grad.addColorStop(Math.round((point==1?1:point%1)*100)/100,detail[1]);
-                        grad.addColorStop(0,trueColor);
-                        //listConsole[1]=trueColor;
-                        //listConsole[Math.round((point==1?1:point%1)*100)/100]=detail[1];
-                        //listConsole[0]=trueColor;
-                    } else {
-                        grad.addColorStop(Math.round((point==1?1:point%1)*100)/100,detail[1]);
-                        //listConsole[Math.round((point==1?1:point%1)*100)/100]=detail[1];
-                    }
-                }
-                //console.log(listConsole);
-            }
-            return grad;
-        } else {
-            return content;
-        }
-    }
-    QJ.gradientPointCalculate = function (start,end,rate) {
-        let rgb1 = QJ.hexToRgb(start);
-        let rgb2 = QJ.hexToRgb(end);
-        let r = Math.floor(rgb1.r-(rgb1.r-rgb2.r)*rate).clamp(0,255);
-        let g = Math.floor(rgb1.g-(rgb1.g-rgb2.g)*rate).clamp(0,255);
-        let b = Math.floor(rgb1.b-(rgb1.b-rgb2.b)*rate).clamp(0,255);
-        return QJ.rgbToHex({r:r,g:g,b:b});
-    }
-    QJ.hexToRgb = function (hex) {
-        let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        return {r: parseInt(result[1],16),g: parseInt(result[2], 16),b: parseInt(result[3], 16)};
-    }
-    QJ.rgbToHex = function (rgb) {
-        let r=rgb.r.toString(16),g=rgb.g.toString(16),b=rgb.b.toString(16);
-        return "#"+(r.length==1?("0"+r):r)+(g.length==1?("0"+g):g)+(b.length==1?("0"+b):b);
-    }
-    QJ.calculateAngleByTwoPoint=function(x,y,ex,ey){
-        let ro;
-        if (ex>x&&ey<y)  ro=(-Math.atan((x-ex)/(y-ey)));
-        if (ex>x&&ey>y)  ro=(Math.PI-Math.atan((x-ex)/(y-ey)));
-        if (ex<x&&ey>y)  ro=(Math.PI-Math.atan((x-ex)/(y-ey)));
-        if (ex<x&&ey<y)  ro=(2*Math.PI-Math.atan((x-ex)/(y-ey)));
-        if (ex==x&&ey>y) ro=Math.PI;
-        if (ex==x&&ey<y) ro=0;
-        if (ex>x&&ey==y) ro=Math.PI/2;
-        if (ex<x&&ey==y) ro=Math.PI*3/2;
-        if (ex==x&&ey==y)ro=NaN;
-        return ro;
-    };
-    QJ.calculateAngleByDirection=function(direction){
-        if (direction==1) return Math.PI*5/4;//左下
-        if (direction==2) return Math.PI;
-        if (direction==3) return Math.PI*3/4;//右下
-        if (direction==4) return Math.PI*3/2;
-        if (direction==6) return Math.PI/2;
-        if (direction==7) return Math.PI*7/4;//左上
-        if (direction==8) return 0;
-        if (direction==9) return Math.PI/4;//右上
-        return 0;
-    };
-    let transAngle = 180/Math.PI;
-    QJ.calculateAngleByTwoPointAngle=function(x,y,ex,ey){
-        let ro;
-        if (ex>x&&ey<y)  ro=(-Math.atan((x-ex)/(y-ey)))         *transAngle;
-        if (ex>x&&ey>y)  ro=(Math.PI-Math.atan((x-ex)/(y-ey)))  *transAngle;
-        if (ex<x&&ey>y)  ro=(Math.PI-Math.atan((x-ex)/(y-ey)))  *transAngle;
-        if (ex<x&&ey<y)  ro=(2*Math.PI-Math.atan((x-ex)/(y-ey)))*transAngle;
-        if (ex==x&&ey>y) ro=180;
-        if (ex==x&&ey<y) ro=0;
-        if (ex>x&&ey==y) ro=90;
-        if (ex<x&&ey==y) ro=270;
-        if (ex==x&&ey==y)ro=NaN;
-        return ro;
-    };
-    QJ.calculateAngleByDirectionAngle=function(direction){
-        if (direction==1) return 225;//左下
-        if (direction==2) return 180;
-        if (direction==3) return 135;//右下
-        if (direction==4) return 270;
-        if (direction==6) return 90;
-        if (direction==7) return 315;//左上
-        if (direction==8) return 0;
-        if (direction==9) return 45;//右上
-        return 0;
-    };
-    QJ.calculateAnnotation = function(event) {
-        let page=null,content="";
-        try{
-            page=event.page();
-        } catch(e) {
-            page=null;
-        }
-        if (page) {
-            if (page.list[0].code === 108) {
-                let i=0;
-                while (page.list[i].code === 408 || page.list[i].code === 108) {
-                    content=content + page.list[i].parameters[0];
-                    i++;
-                }
-            }
-        }
-        return content;
-    };
-    QJ.calculateRangeAndInt = function(list) {
-        let standardList = [],detail;
-        for (let i of list) {
-            if (typeof i == "number") {
-                standardList.push(i);
-            } else if (typeof i == "string") {
-                detail = i.split('-');
-                for (let j=Number(detail[0]),jl=Number(detail[1]);j<=jl;j++) {
-                    standardList.push(j);
-                }
-            }
-        }
-        return standardList;
-    }
-    //=============================================================================
-    //
-    //=============================================================================
-    $.Game_Event_initialize = Game_Event.prototype.initialize;
-    Game_Event.prototype.initialize = function(mapId, eventId) {
-        this._commonEventQJ = new Array();
-        $.Game_Event_initialize.apply(this,arguments);
-    };
-    Game_Event.prototype.steupCEQJ = function(value,reSetData,extraData) {
-        let listData = this.event().pages[value-1];
-        if (listData) {
-            let interpreter = new Game_InterpreterCEQJ(value-1,reSetData,extraData);
-            interpreter.setup(listData.list,this.eventId());
-            if (!interpreter.isRunning()) interpreter.terminate();
-            this._commonEventQJ.push(interpreter);
-        }
-    };
-    $.Game_Event_updateParallel = Game_Event.prototype.updateParallel;
-    Game_Event.prototype.updateParallel = function() {
-        $.Game_Event_updateParallel.apply(this,arguments);
-        this.updateCEQJ();
-    };
-    Game_Event.prototype.updateCEQJ = function() {
-        if (this._commonEventQJ.length>0) {
-            for (let idata=this._commonEventQJ,il=idata.length,i=0;i<il;i++) {
-                if (idata[i]) {
-                    idata[i].update();
-                    if (idata[i].overLifeQJ) {
-                        idata.splice(i,1);
-                        i--;
-                        il--;
-                    }
-                }
-            }
-        }
-    };
-    //=============================================================================
-    //
-    //=============================================================================
-    $.Game_Map_initialize = Game_Map.prototype.initialize;
-    Game_Map.prototype.initialize = function() {
-        this._commonEventQJ = new Array();
-        $.Game_Map_initialize.apply(this,arguments);
-    };
-    Game_Map.prototype.steupCEQJ = function(value,eid,reSetData,extraData) {
-        if (!!$dataCommonEvents[value]) {
-            let interpreter = new Game_InterpreterCEQJX(value,reSetData||{},extraData||{});
-            interpreter.setup($dataCommonEvents[value].list,eid);
-            if (!interpreter.isRunning()) interpreter.terminate();
-            this._commonEventQJ.push(interpreter);
-        }
-    };
-    $.Game_Map_update = Game_Map.prototype.update;
-    Game_Map.prototype.update = function(sceneActive) {
-        $.Game_Map_update.apply(this,arguments);
-        if (this._commonEventQJ.length>0) {
-            for (let idata=this._commonEventQJ,il=idata.length,i=0;i<il;i++) {
-                if (idata[i]) {
-                    idata[i].update();
-                    if (idata[i].overLifeQJ) {
-                        idata.splice(i,1);
-                        i--;
-                        il--;
-                    }
-                }
-            }
-        }
-    }
-}
-if (QJ.MPMZ.isMV) {
     Bitmap.prototype.measureTextHeight = function(text) {
         return this.fontSize;
     };
@@ -5417,11 +5258,169 @@ if (QJ.MPMZ.isMV) {
     };
 }
 if (QJ.MPMZ.isMV) {
-    $.Game_Interpreter_executeCommand = Game_Interpreter.prototype.executeCommand;
-    Game_Interpreter.prototype.executeCommand = function() {
-        QJ.Pointer=this;
-        return $.Game_Interpreter_executeCommand.apply(this,arguments);
+    QJ.randomColor = function(start,length) {
+        return QJ.rgbToHex({
+            r:start+Math.floor(Math.random()*length),
+            g:start+Math.floor(Math.random()*length),
+            b:start+Math.floor(Math.random()*length)});
+    }
+    QJ.colorGrad = function(bitmap,content,x,y,w,h,ro = 0,offset = 0) {
+        if (content.constructor == Bitmap) {
+            const grad = bitmap._context.createPattern(content._canvas || content._image,"repeat");
+            if (grad&&grad.setTransform) {
+                grad.setTransform(new DOMMatrix().
+                    translateSelf(x+offset*Math.sin(ro),y-offset*Math.cos(ro),0).
+                    rotateSelf(ro*180/Math.PI));
+            }
+            return grad;
+        } else if (content.includes("|")) {
+            const list=content.split("~");
+            const colorNum = list.length;
+            let k = Math.atan(w/h),diaL = Math.sqrt(w*w+h*h)/2,noSoildRadius;
+            ro = ro%(Math.PI*2);
+            if (ro<Math.PI/2) noSoildRadius = diaL*Math.cos(k-ro);
+            else if (ro<Math.PI) noSoildRadius = -diaL*Math.cos(k+ro);
+            else if (ro<Math.PI*3/2) noSoildRadius = -diaL*Math.cos(k-ro);
+            else noSoildRadius = diaL*Math.cos(k+ro);
+            const grad = bitmap._context.createLinearGradient(
+                Math.floor(x+w/2+noSoildRadius*Math.sin(ro)),Math.floor(y+h/2-noSoildRadius*Math.cos(ro)),
+                Math.floor(x+w/2-noSoildRadius*Math.sin(ro)),Math.floor(y+h/2+noSoildRadius*Math.cos(ro)));
+            if (offset==0) {
+                for(let i=0,detail,point;i<colorNum; i++) {
+                    detail = list[i].split("|");
+                    grad.addColorStop(detail[0],detail[1]);
+                }
+            } else {
+                offset %= 1;//转为小数
+                let hasNotMoveUp = true;
+                //let listConsole = {};
+                for(let i=0,detail,point; i<colorNum; i++) {
+                    detail = list[i].split("|");
+                    detail[0] = Number(detail[0]);
+                    point = Math.floor((detail[0]+offset)*100)/100;
+                    if (hasNotMoveUp&&point>1) {
+                        hasNotMoveUp = false;
+                        let lastColorDetail = list[(i-1<0)?(colorNum-1):(i-1)].split("|");
+                        lastColorDetail[0] = Number(lastColorDetail[0]);
+                        let trueColor = QJ.gradientPointCalculate(lastColorDetail[1],detail[1],(1-lastColorDetail[0]-offset)/(detail[0]-lastColorDetail[0]));
+                        grad.addColorStop(1,trueColor);
+                        grad.addColorStop(Math.round((point==1?1:point%1)*100)/100,detail[1]);
+                        grad.addColorStop(0,trueColor);
+                        //listConsole[1]=trueColor;
+                        //listConsole[Math.round((point==1?1:point%1)*100)/100]=detail[1];
+                        //listConsole[0]=trueColor;
+                    } else {
+                        grad.addColorStop(Math.round((point==1?1:point%1)*100)/100,detail[1]);
+                        //listConsole[Math.round((point==1?1:point%1)*100)/100]=detail[1];
+                    }
+                }
+                //console.log(listConsole);
+            }
+            return grad;
+        } else {
+            return content;
+        }
+    }
+    QJ.gradientPointCalculate = function (start,end,rate) {
+        let rgb1 = QJ.hexToRgb(start);
+        let rgb2 = QJ.hexToRgb(end);
+        let r = Math.floor(rgb1.r-(rgb1.r-rgb2.r)*rate).clamp(0,255);
+        let g = Math.floor(rgb1.g-(rgb1.g-rgb2.g)*rate).clamp(0,255);
+        let b = Math.floor(rgb1.b-(rgb1.b-rgb2.b)*rate).clamp(0,255);
+        return QJ.rgbToHex({r:r,g:g,b:b});
+    }
+    QJ.hexToRgb = function (hex) {
+        let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return {r: parseInt(result[1],16),g: parseInt(result[2], 16),b: parseInt(result[3], 16)};
+    }
+    QJ.rgbToHex = function (rgb) {
+        let r=rgb.r.toString(16),g=rgb.g.toString(16),b=rgb.b.toString(16);
+        return "#"+(r.length==1?("0"+r):r)+(g.length==1?("0"+g):g)+(b.length==1?("0"+b):b);
+    }
+    QJ.calculateAngleByTwoPoint=function(x,y,ex,ey){
+        let ro;
+        if (ex>x&&ey<y)  ro=(-Math.atan((x-ex)/(y-ey)));
+        if (ex>x&&ey>y)  ro=(Math.PI-Math.atan((x-ex)/(y-ey)));
+        if (ex<x&&ey>y)  ro=(Math.PI-Math.atan((x-ex)/(y-ey)));
+        if (ex<x&&ey<y)  ro=(2*Math.PI-Math.atan((x-ex)/(y-ey)));
+        if (ex==x&&ey>y) ro=Math.PI;
+        if (ex==x&&ey<y) ro=0;
+        if (ex>x&&ey==y) ro=Math.PI/2;
+        if (ex<x&&ey==y) ro=Math.PI*3/2;
+        if (ex==x&&ey==y)ro=NaN;
+        return ro;
     };
+    QJ.calculateAngleByDirection=function(direction){
+        if (direction==1) return Math.PI*5/4;//左下
+        if (direction==2) return Math.PI;
+        if (direction==3) return Math.PI*3/4;//右下
+        if (direction==4) return Math.PI*3/2;
+        if (direction==6) return Math.PI/2;
+        if (direction==7) return Math.PI*7/4;//左上
+        if (direction==8) return 0;
+        if (direction==9) return Math.PI/4;//右上
+        return 0;
+    };
+    let transAngle = 180/Math.PI;
+    QJ.calculateAngleByTwoPointAngle=function(x,y,ex,ey){
+        let ro;
+        if (ex>x&&ey<y)  ro=(-Math.atan((x-ex)/(y-ey)))         *transAngle;
+        if (ex>x&&ey>y)  ro=(Math.PI-Math.atan((x-ex)/(y-ey)))  *transAngle;
+        if (ex<x&&ey>y)  ro=(Math.PI-Math.atan((x-ex)/(y-ey)))  *transAngle;
+        if (ex<x&&ey<y)  ro=(2*Math.PI-Math.atan((x-ex)/(y-ey)))*transAngle;
+        if (ex==x&&ey>y) ro=180;
+        if (ex==x&&ey<y) ro=0;
+        if (ex>x&&ey==y) ro=90;
+        if (ex<x&&ey==y) ro=270;
+        if (ex==x&&ey==y)ro=NaN;
+        return ro;
+    };
+    QJ.calculateAngleByDirectionAngle=function(direction){
+        if (direction==1) return 225;//左下
+        if (direction==2) return 180;
+        if (direction==3) return 135;//右下
+        if (direction==4) return 270;
+        if (direction==6) return 90;
+        if (direction==7) return 315;//左上
+        if (direction==8) return 0;
+        if (direction==9) return 45;//右上
+        return 0;
+    };
+    QJ.calculateAnnotation = function(event) {
+        let page=null,content="";
+        try{
+            page=event.page();
+        } catch(e) {
+            page=null;
+        }
+        if (page) {
+            if (page.list[0].code === 108) {
+                let i=0;
+                while (page.list[i].code === 408 || page.list[i].code === 108) {
+                    content=content + page.list[i].parameters[0];
+                    i++;
+                }
+            }
+        }
+        return content;
+    };
+    QJ.calculateRangeAndInt = function(list) {
+        let standardList = [],detail;
+        for (let i of list) {
+            if (typeof i == "number") {
+                standardList.push(i);
+            } else if (typeof i == "string") {
+                detail = i.split('-');
+                for (let j=Number(detail[0]),jl=Number(detail[1]);j<=jl;j++) {
+                    standardList.push(j);
+                }
+            }
+        }
+        return standardList;
+    }
+    //=============================================================================
+    //
+    //=============================================================================
 }
 //=============================================================================
 //
