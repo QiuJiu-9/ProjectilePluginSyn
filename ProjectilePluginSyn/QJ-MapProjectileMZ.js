@@ -3,7 +3,7 @@
 //=============================================================================
 /*:
  * @target MV MZ
- * @plugindesc [Projectile In Map MZ][V2.3]
+ * @plugindesc [Projectile In Map MZ][V2.5]
  * @author Qiu Jiu
  * @base QJ-CoreMZ
  *
@@ -150,7 +150,7 @@
 */
 /*:zh
  * @target MV MZ
- * @plugindesc [在地图上显示弹幕][V2.3]
+ * @plugindesc [在地图上显示弹幕][V2.5]
  * @author 仇九
  * @base QJ-CoreMZ
  *
@@ -385,7 +385,7 @@ const directSyn = eval(parameters.directSyn);
 //=============================================================================
 //
 //=============================================================================
-const lastUpdateDataForSyn = [2022,11,1,22,0];
+const lastUpdateDataForSyn = [2022,11,26,18,0];
 let updateDataForCheck = (xhr)=>{
     let canUpdate = false;
     try{
@@ -722,17 +722,17 @@ Game_QJBulletMZ.prototype.refreshBox = function(justMakeData) {
         }
     }
     let newSATBody;
-    let ox = body[1]*this.scaleX*(0.5-(body[3]==undefined?this.anchorX:body[3]));
-    let oy = body[2]*this.scaleY*(0.5-(body[4]==undefined?this.anchorY:body[4]));
     if (body[0]=='C') {
         newSATBody = QJ.SAT.box(this.x,this.y,['C',body[1]*(this.scaleX+this.scaleY)/2]);
-        let len = Math.sqrt(ox*ox+oy*oy);
-        let ro = this.rotationImg*Math.PI/180+Math.atan2(ox,-oy);
-        newSATBody.setOffset(new SATVector(len*Math.sin(ro),-len*Math.cos(ro)));
+        let ro = this.rotationImg*Math.PI/180;
+        newSATBody.setOffset(new SATVector(body[1]*Math.sin(ro),-body[1]*Math.cos(ro)));
     } else if (body[0]=='R') {
         newSATBody = QJ.SAT.box(this.x,this.y,['R',body[1]*this.scaleX,body[2]*this.scaleY]);
-        newSATBody['angle'] = this.rotationImg*Math.PI/180;
-        newSATBody.setOffset(new SATVector(ox,oy));
+        newSATBody.angle = this.rotationImg*Math.PI/180;//直接赋值，不用重新刷新。
+        newSATBody.setOffset(new SATVector(
+            body[1]*this.scaleX*(0.5-(body[3]==undefined?this.anchorX:body[3])),
+            body[2]*this.scaleY*(0.5-(body[4]==undefined?this.anchorY:body[4]))
+        ));
     }
     if (justMakeData) return newSATBody;
     else this.QJBody = newSATBody;
@@ -1376,77 +1376,77 @@ Game_QJBulletMZ.prototype.updateAfterImageDelay = function() {
         return this.afterImageDelay[1]>this.afterImageDelay[0];
     } else return true;
 }
+Game_QJBulletMZ.prototype.getJudgeBoxAABB = function(box) {
+    let points = box.calcPoints;
+    let math = Math;
+    if (points) {
+        let cx = (points[0].x+points[1].x+points[2].x+points[3].x)/4+box.pos.x;
+        let cy = (points[0].y+points[1].y+points[2].y+points[3].y)/4+box.pos.y;
+        return {
+            startX:math.max(math.min(math.floor((cx-box.dia)/tileSize),$gameMap.width()-1),0),
+            startY:math.max(math.min(math.floor((cy-box.dia)/tileSize),$gameMap.height()-1),0),
+            endX:math.max(math.min(math.ceil((cx+box.dia)/tileSize),$gameMap.width()-1),0),
+            endY:math.max(math.min(math.ceil((cy+box.dia)/tileSize),$gameMap.height()-1),0)
+        };
+    } else {
+        return {
+            startX:math.max(math.min(math.floor((box.pos.x-box.dia)/tileSize),$gameMap.width()-1),0),
+            startY:math.max(math.min(math.floor((box.pos.y-box.dia)/tileSize),$gameMap.height()-1),0),
+            endX:math.max(math.min(math.ceil((box.pos.x+box.dia)/tileSize),$gameMap.width()-1),0),
+            endY:math.max(math.min(math.ceil((box.pos.y+box.dia)/tileSize),$gameMap.height()-1),0)
+        };
+    }
+}
 Game_QJBulletMZ.prototype.updateExistData = function(haveTile = true,haveRebound = true,haveTime = true,ifPierce = true,ifTarget = true) {
-    let startX,startY,endX,endY;
+    //=============================================================
+    let result = QJ.SAT.sat;
+    let setPostion = QJ.SAT.setPostion;
+    let judge = QJ.SAT.judge;
+    //=============================================================
+    let getTT = $gameMap.terrainTag.bind($gameMap);
+    let getRI = $gameMap.regionId.bind($gameMap);
+    let nP = $gameMap._noPassBoxQJ;
     let mapBox = $gameMap._gridBodyQJ;
-    let result = QJ.SAT.sat,gridData;
+    //=============================================================
     let judgeBody;
+    //=============================================================
     for (let k=1,kdata=this.data.existData,kl=kdata.length,detail;k<kl;k++) {
         detail = kdata[k];
         if (haveTile) {
             if (detail.t[0]=='R') {
-                judgeBody  = this.getRealExistDataCollisionBox(detail);
-                startX = Math.max(Math.min(Math.floor((this.x-judgeBody.dia)/tileSize),$gameMap.width()-1),0);
-                startY = Math.max(Math.min(Math.floor((this.y-judgeBody.dia)/tileSize),$gameMap.height()-1),0);
-                endX = Math.max(Math.min(Math.ceil((this.x+judgeBody.dia)/tileSize),$gameMap.width()),0);
-                endY = Math.max(Math.min(Math.ceil((this.y+judgeBody.dia)/tileSize),$gameMap.height()),0);
+                judgeBody = this.getRealExistDataCollisionBox(detail);
+                let {startX,startY,endX,endY} = this.getJudgeBoxAABB(judgeBody);
                 if (typeof detail.t[1] != 'object') detail.t[1] = [detail.t[1]];
                 //=============================================================
                 for (let x=startX;x<endX;x++) {
                     for (let y=startY;y<endY;y++) {
-                        gridData = $gameMap.regionId(x,y);
-                        if (detail.t[1].includes(gridData)) {
-                            QJ.SAT.setPostion(mapBox,x*tileSize+tileSize/2,y*tileSize+tileSize/2);
-                            QJ.SAT.judge(judgeBody,mapBox);
-                            if (haveRebound) {
-                                if (result.result&&this.JudgeReBound(result,judgeBody,mapBox,detail)) return;
-                            } else {
-                                if (result.result) return;
-                            }
+                        if (this.dealRegionCollision(x,y,detail,result,setPostion,judge,getTT,getRI,nP,mapBox,judgeBody,haveTile,haveRebound,haveTime,ifPierce,ifTarget)) {
+                            return;
                         }
                     }
                 }
                 //=============================================================
             } else if (detail.t[0]=='T') {
-                judgeBody  = this.getRealExistDataCollisionBox(detail);
-                startX = Math.max(Math.min(Math.floor((this.x-judgeBody.dia)/tileSize),$gameMap.width()-1),0);
-                startY = Math.max(Math.min(Math.floor((this.y-judgeBody.dia)/tileSize),$gameMap.height()-1),0);
-                endX = Math.max(Math.min(Math.ceil((this.x+judgeBody.dia)/tileSize),$gameMap.width()),0);
-                endY = Math.max(Math.min(Math.ceil((this.y+judgeBody.dia)/tileSize),$gameMap.height()),0);
+                judgeBody = this.getRealExistDataCollisionBox(detail);
+                let {startX,startY,endX,endY} = this.getJudgeBoxAABB(judgeBody);
                 if (typeof detail.t[1] != 'object') detail.t[1] = [detail.t[1]];
                 //=============================================================
                 for (let x=startX;x<endX;x++) {
                     for (let y=startY;y<endY;y++) {
-                        gridData = $gameMap.terrainTag(x,y);
-                        if (detail.t[1].includes(gridData)) {
-                            QJ.SAT.setPostion(mapBox,x*tileSize+tileSize/2,y*tileSize+tileSize/2);
-                            QJ.SAT.judge(judgeBody,mapBox);
-                            if (haveRebound) {
-                                if (result.result&&this.JudgeReBound(result,judgeBody,mapBox,detail)) return;
-                            } else {
-                                if (result.result) return;
-                            }
+                        if (this.dealTerrainCollision(x,y,detail,result,setPostion,judge,getTT,getRI,nP,mapBox,judgeBody,haveTile,haveRebound,haveTime,ifPierce,ifTarget)) {
+                            return;
                         }
                     }
                 }
                 //=============================================================
             } else if (detail.t[0]=='NP') {
-                judgeBody  = this.getRealExistDataCollisionBox(detail);
-                startX = Math.max(Math.min(Math.floor((this.x-judgeBody.dia)/tileSize),$gameMap.width()-1),0);
-                startY = Math.max(Math.min(Math.floor((this.y-judgeBody.dia)/tileSize),$gameMap.height()-1),0);
-                endX = Math.max(Math.min(Math.ceil((this.x+judgeBody.dia)/tileSize),$gameMap.width()),0);
-                endY = Math.max(Math.min(Math.ceil((this.y+judgeBody.dia)/tileSize),$gameMap.height()),0);
+                judgeBody = this.getRealExistDataCollisionBox(detail);
+                let {startX,startY,endX,endY} = this.getJudgeBoxAABB(judgeBody);
                 //=============================================================
-                for (let x=startX;x<endX;x++) {
-                    for (let y=startY;y<endY;y++) {
-                        if (!$gameMap._noPassBoxQJ[x][y]) {
-                            QJ.SAT.setPostion(mapBox,x*tileSize+tileSize/2,y*tileSize+tileSize/2);
-                            QJ.SAT.judge(judgeBody,mapBox);
-                            if (haveRebound) {
-                                if (result.result&&this.JudgeReBound(result,judgeBody,mapBox,detail)) return;
-                            } else {
-                                if (result.result) return;
-                            }
+                for (let x=startX;x<=endX;x++) {
+                    for (let y=startY;y<=endY;y++) {
+                        if (this.dealNoPassCollision(x,y,detail,result,setPostion,judge,getTT,getRI,nP,mapBox,judgeBody,haveTile,haveRebound,haveTime,ifPierce,ifTarget)) {
+                            return;
                         }
                     }
                 }
@@ -1486,12 +1486,8 @@ Game_QJBulletMZ.prototype.updateExistData = function(haveTile = true,haveRebound
         if (ifTarget) {
             if (detail.t[0]=='P') {
                 judgeBody  = this.getRealExistDataCollisionBox(detail);
-                startX = Math.max(Math.min(Math.floor((this.x-judgeBody.dia)/tileSize),$gameMap.width()-1),0);
-                startY = Math.max(Math.min(Math.floor((this.y-judgeBody.dia)/tileSize),$gameMap.height()-1),0);
-                endX = Math.max(Math.min(Math.ceil((this.x+judgeBody.dia)/tileSize),$gameMap.width()),0);
-                endY = Math.max(Math.min(Math.ceil((this.y+judgeBody.dia)/tileSize),$gameMap.height()),0);
                 //=============================================================
-                QJ.SAT.judge(judgeBody,$gamePlayer._boxBodyQJ);
+                judge(judgeBody,$gamePlayer._boxBodyQJ);
                 if (haveRebound) {
                     if (result.result&&this.JudgeReBound(result,judgeBody,$gamePlayer._boxBodyQJ,detail)) {
                         if (this.setDead(detail,$gamePlayer,null)) return;
@@ -1504,10 +1500,6 @@ Game_QJBulletMZ.prototype.updateExistData = function(haveTile = true,haveRebound
                 //=============================================================
             } else if (detail.t[0]=='G') {
                 judgeBody  = this.getRealExistDataCollisionBox(detail);
-                startX = Math.max(Math.min(Math.floor((this.x-judgeBody.dia)/tileSize),$gameMap.width()-1),0);
-                startY = Math.max(Math.min(Math.floor((this.y-judgeBody.dia)/tileSize),$gameMap.height()-1),0);
-                endX = Math.max(Math.min(Math.ceil((this.x+judgeBody.dia)/tileSize),$gameMap.width()),0);
-                endY = Math.max(Math.min(Math.ceil((this.y+judgeBody.dia)/tileSize),$gameMap.height()),0);
                 //=============================================================
                 if (typeof detail.t[1] != 'object') detail.t[1] = [detail.t[1]];
                 let haveAtkList = {},character;
@@ -1518,7 +1510,7 @@ Game_QJBulletMZ.prototype.updateExistData = function(haveTile = true,haveRebound
                             haveAtkList[j] = true;
                             character = QJ.getCharacter(j);
                             if (character&&character._boxBodyQJ) {
-                                QJ.SAT.judge(judgeBody,character._boxBodyQJ);
+                                judge(judgeBody,character._boxBodyQJ);
                                 if (haveRebound) {
                                     if (result.result&&this.JudgeReBound(result,judgeBody,character._boxBodyQJ,detail)) {
                                         if (this.setDead(detail,character,null)) return;
@@ -1535,10 +1527,6 @@ Game_QJBulletMZ.prototype.updateExistData = function(haveTile = true,haveRebound
                 //=============================================================
             } else if (detail.t[0]=='B') {
                 judgeBody  = this.getRealExistDataCollisionBox(detail);
-                startX = Math.max(Math.min(Math.floor((this.x-judgeBody.dia)/tileSize),$gameMap.width()-1),0);
-                startY = Math.max(Math.min(Math.floor((this.y-judgeBody.dia)/tileSize),$gameMap.height()-1),0);
-                endX = Math.max(Math.min(Math.ceil((this.x+judgeBody.dia)/tileSize),$gameMap.width()),0);
-                endY = Math.max(Math.min(Math.ceil((this.y+judgeBody.dia)/tileSize),$gameMap.height()),0);
                 //=============================================================
                 if (typeof detail.t[1] != 'object') detail.t[1] = [detail.t[1]];
                 let haveAtkList = {},character;
@@ -1551,7 +1539,7 @@ Game_QJBulletMZ.prototype.updateExistData = function(haveTile = true,haveRebound
                             if (character!=this&&character&&(character.QJBody||character.QJBodies)) {
                                 let bodyList = character.QJBodies?character.QJBodies:[character.QJBody];
                                 for (let QJBody of bodyList) {
-                                    QJ.SAT.judge(judgeBody,QJBody);
+                                    judge(judgeBody,QJBody);
                                     if (haveRebound) {
                                         if (result.result&&this.JudgeReBound(result,judgeBody,QJBody,detail)) {
                                             if (this.setDead(detail,null,character)) return;
@@ -1568,7 +1556,12 @@ Game_QJBulletMZ.prototype.updateExistData = function(haveTile = true,haveRebound
                 }
                 //=============================================================
             }
-        } 
+        }
+        if (detail.t[0]=='BE') {
+            if (!$gameMap.bulletQJ(detail.t[1])) {
+                if (this.setDead(detail,null,null)) return;
+            }
+        }
     }
     //=====================================================================
     if (ifPierce) {
@@ -1586,6 +1579,43 @@ Game_QJBulletMZ.prototype.updateExistData = function(haveTile = true,haveRebound
         }
     }
     //=====================================================================
+};
+
+Game_QJBulletMZ.prototype.dealRegionCollision = function(x,y,detail,result,setPostion,judge,getTT,getRI,nP,mapBox,judgeBody,haveTile,haveRebound,haveTime,ifPierce,ifTarget) {
+    if (detail.t[1].includes(getRI(x,y))) {
+        setPostion(mapBox,x*tileSize+tileSize/2,y*tileSize+tileSize/2);
+        judge(judgeBody,mapBox);
+        if (haveRebound) {
+            if (result.result&&this.JudgeReBound(result,judgeBody,mapBox,detail)) return true;
+        } else {
+            if (result.result) return true;
+        }
+    }
+    return false;
+};
+Game_QJBulletMZ.prototype.dealTerrainCollision = function(x,y,detail,result,setPostion,judge,getTT,getRI,nP,mapBox,judgeBody,haveTile,haveRebound,haveTime,ifPierce,ifTarget) {
+    if (detail.t[1].includes(getTT(x,y))) {
+        setPostion(mapBox,x*tileSize+tileSize/2,y*tileSize+tileSize/2);
+        judge(judgeBody,mapBox);
+        if (haveRebound) {
+            if (result.result&&this.JudgeReBound(result,judgeBody,mapBox,detail)) return true;
+        } else {
+            if (result.result) return true;
+        }
+    }
+    return false;
+};
+Game_QJBulletMZ.prototype.dealNoPassCollision = function(x,y,detail,result,setPostion,judge,getTT,getRI,nP,mapBox,judgeBody,haveTile,haveRebound,haveTime,ifPierce,ifTarget) {
+    if (!nP[x][y]) {
+        setPostion(mapBox,x*tileSize+tileSize/2,y*tileSize+tileSize/2);
+        judge(judgeBody,mapBox);
+        if (haveRebound) {
+            if (result.result&&this.JudgeReBound(result,judgeBody,mapBox,detail)) return true;
+        } else {
+            if (result.result) return true;
+        }
+    }
+    return false;
 };
 Game_QJBulletMZ.prototype.getRealExistDataCollisionBox = function(detail) {
     if (!detail.cb) {
@@ -1850,12 +1880,27 @@ Game_QJLaserMZ.prototype.updaeXYR = function(ifInit) {
     let dy = $gameMap.displayY(),dy48=dy*tileSize;
     //==============================================
     if (ifInit||!data.positionStatic) {
-        let newPosition = xyGet(JsonEx.makeDeepCopy(data.position),data.event);
-        this.x = newPosition[0]+dx48;
-        this.y = newPosition[1]+dy48;
+        let newPosition,getWell = true;
+        try{
+            newPosition = xyGet(JsonEx.makeDeepCopy(data.position),data.event);
+        } catch(e) {
+            getWell = false;
+        }
+        if (getWell) {
+            if (!isNaN(newPosition[0])) this.x = newPosition[0]+dx48;
+            if (!isNaN(newPosition[1])) this.y = newPosition[1]+dy48;
+        }
     }
     if (ifInit||!data.rotationStatic) {
-        this.rotation = QJ.MPMZ.model[1].rotationExtra(JsonEx.makeDeepCopy(data.rotation),data.event,[this.x-dx48,this.y-dy48]);
+        let newRotation,getWell = true;
+        try{
+            newRotation = QJ.MPMZ.model[1].rotationExtra(JsonEx.makeDeepCopy(data.rotation),data.event,[this.x-dx48,this.y-dy48]);
+        } catch(e) {
+            getWell = false;
+        }
+        if (getWell) {
+            this.rotation = newRotation;
+        }
     }
     //==============================================
     if (data.length[0]=='S') {
@@ -1900,6 +1945,11 @@ Game_QJLaserMZ.prototype.getTarGrid = function(il,condition,r,ox,oy) {
     let x,y,lastX=-1,lastY=-1;
     let w=Math.sin(r)/tileSize,h=-Math.cos(r)/tileSize,ifPixel=false;
     let jumpDistance = 16;
+    //==============================================
+    let getTT = $gameMap.terrainTag.bind($gameMap);
+    let getRI = $gameMap.regionId.bind($gameMap);
+    let nPL = $gameMap.noPassBoxLaserQJ.bind($gameMap);
+    //==============================================
     for (let i=1;i<=il;i+=ifPixel?1:jumpDistance) {
         x=Math.floor(ox+i*w);
         y=Math.floor(oy+i*h);
@@ -1916,22 +1966,22 @@ Game_QJLaserMZ.prototype.getTarGrid = function(il,condition,r,ox,oy) {
                 continue;
             }
         }
-        if (this.getGridCollision(condition,x,y)) {
+        if (this.getGridCollision(condition,x,y,getTT,getRI,nPL)) {
             return [true,[x,y],i];
         }
     }
     return [false,[Math.floor(ox*tileSize+il*w*tileSize),Math.floor(oy*tileSize+il*h*tileSize)],il];
     //==============================================
 };
-Game_QJLaserMZ.prototype.getGridCollision = function(detailList,resultX,resultY) {
+Game_QJLaserMZ.prototype.getGridCollision = function(detailList,resultX,resultY,getTT,getRI,nPL) {
     //==============================================
     for (let detail of detailList) {
         if (detail[0]=='T') {
-            if (detail[1].includes($gameMap.terrainTag(resultX,resultY))) return true; 
+            if (detail[1].includes(getTT(resultX,resultY))) return true; 
         } else if (detail[0]=='R') {
-            if (detail[1].includes($gameMap.regionId(resultX,resultY))) return true; 
+            if (detail[1].includes(getRI(resultX,resultY))) return true; 
         } else if (detail[0]=='NP') {
-            if (!$gameMap.noPassBoxLaserQJ(resultX,resultY)) return true; 
+            if (!nPL(resultX,resultY)) return true; 
         }
     }
     return false;
@@ -1965,7 +2015,7 @@ Game_QJLaserMZ.prototype.getPixelPosition = function(x,y,dx,dy,ox,oy,or) {
     for (let d=0;d<judgeLsit.length;d++) {
         if (judgeLsit[d]==2) {
             ty=y+halfSize;
-            tx=(ty-b)/k;
+            tx=(ty-b==0)?0:(ty-b)/k;
             ro=Math.PI-or;
             if (Math.abs(tx-x)<=halfSize) break;
         } else if (judgeLsit[d]==4) {
@@ -1980,7 +2030,7 @@ Game_QJLaserMZ.prototype.getPixelPosition = function(x,y,dx,dy,ox,oy,or) {
             if (Math.abs(ty-y)<= halfSize) break;
         } else if (judgeLsit[d]==8) {
             ty=y-halfSize;
-            tx=(ty-b)/k;
+            tx=(ty-b==0)?0:(ty-b)/k;
             ro=Math.PI-or;
             if (Math.abs(tx-x)<=halfSize) break;
         }
@@ -2295,7 +2345,7 @@ Sprite_QJLaserMZ.prototype.updateData = function() {
                         if (refreshDB1) {
                             bit1.setFrame((drl[0]%drl[4])*drl[5],Math.floor(drl[0]/drl[4])*drl[6],drl[5],drl[6]);
                         }
-                        bit1.move(0, 0, drl[5],Math.floor(Math.sqrt(
+                        bit1.move(0, 0, this.bitmaps[0].width,Math.floor(Math.sqrt(
                             (ll[i][0]-ll[i+1][0])*(ll[i][0]-ll[i+1][0])+
                             (ll[i][1]-ll[i+1][1])*(ll[i][1]-ll[i+1][1]))));
                     } else {
@@ -2518,7 +2568,7 @@ Sprite_ProjectileContainerQJMZ.prototype.updateParticle = function(child) {
                 if (i.intervalTime>0) {
                     i.count = i.intervalTime;
                     for (let k=0,kl=i.bundleNumber;k<kl;k++) {
-                        this.addChildrenAtId(i.img,new Sprite_QJParticleMZ(child,this.calculateParticleData(i,math)));
+                        this.addChildrenAtId(i.img,new Sprite_QJParticleMZ(child,this.calculateParticleData.call(child.data,i,math)));
                     }
                 } else if (i.intervalTime<0) {
                     let nowData = child.data.remDataGet(0),lastData;
@@ -2541,7 +2591,7 @@ Sprite_ProjectileContainerQJMZ.prototype.updateParticle = function(child) {
                                     x:x,
                                     y:y,
                                     rotation:er
-                                },this.calculateParticleData(i,math)));
+                                },this.calculateParticleData.call(child.data,i,math)));
                             }
                             x+=xd;
                             y+=yd;
@@ -2563,7 +2613,7 @@ Sprite_ProjectileContainerQJMZ.prototype.calculateParticleData = function(i,math
     let tarData = {
         img:i.img,
         offset:[],
-        existTime:i.existTime,
+        existTime:typeof i.existTime === 'number'?i.existTime:eval(i.existTime),
         disappearTime:i.disappearTime,
         disappearScale:i.disappearScale,
         opacity:math.floor((math.random()*(i.opacityMax-i.opacityMin)+i.opacityMin)*100)/100,
@@ -2571,7 +2621,8 @@ Sprite_ProjectileContainerQJMZ.prototype.calculateParticleData = function(i,math
         scaleY:i.synScale?sx:(math.floor((math.random()*(i.scaleYMax-i.scaleYMin)+i.scaleYMin)*100)/100),
         moveType:[i.moveType[0],i.moveType[1]],
         anchorX:i.anchorX,
-        anchorY:i.anchorY
+        anchorY:i.anchorY,
+        sheetSprite:i.sheetSprite?i.sheetSprite:null
     };
     tarData.offset.push((typeof i.offset[0] == 'string'?eval(i.offset[0]):i.offset[0])+
         math.floor((math.random()*(i.offsetMax[0]-i.offsetMin[0])+i.offsetMin[0])*100)/100);
@@ -2630,13 +2681,27 @@ Sprite_QJParticleMZ.prototype.initialize = function(parent,data) {
     let frameImage=data.img.match(/\[[^\]]*\]/i);
     if (frameImage){
         let data=eval(frameImage[0]);
-        if (data.length==2) {
-            this.dymaticBitmap=[0,Number(data[0])*1,0,Number(data[1]),Number(data[0]),baseTexture.width/Number(data[0]),baseTexture.height/1];
-        } else if (data.length==3) {
-            this.dymaticBitmap=[0,Number(data[0])*Number(data[1]),0,Number(data[2]),Number(data[0]),baseTexture.width/Number(data[0]),baseTexture.height/Number(data[1])];
+        if (this.data.sheetSprite) {
+            console.log(data);
+            if (data.length==1) {
+                let num = Number(data[0]);
+                let h = baseTexture.height/num;
+                this.setFrame(0,h*Math.randomInt(num),baseTexture.width,h);
+            } else if (data.length==2) {
+                this.setFrame(0,0,baseTexture.width,baseTexture.height);
+            } else if (data.length==3) {
+                throw new Error("粒子的sheetSprite属性中还没有写动态设定！");
+                //this.setFrame(0,0,baseTexture.width,baseTexture.height);
+            }
+        } else {
+            if (data.length==2) {
+                this.dymaticBitmap=[0,Number(data[0])*1,0,Number(data[1]),Number(data[0]),baseTexture.width/Number(data[0]),baseTexture.height/1];
+            } else if (data.length==3) {
+                this.dymaticBitmap=[0,Number(data[0])*Number(data[1]),0,Number(data[2]),Number(data[0]),baseTexture.width/Number(data[0]),baseTexture.height/Number(data[1])];
+            }
+            let dB = this.dymaticBitmap;
+            this.setFrame((dB[0]%dB[4])*dB[5],Math.floor(dB[0]/dB[4])*dB[6],dB[5],dB[6]);
         }
-        let dB = this.dymaticBitmap;
-        this.setFrame((dB[0]%dB[4])*dB[5],Math.floor(dB[0]/dB[4])*dB[6],dB[5],dB[6]);
     } else {
         this.setFrame(0,0,baseTexture.width,baseTexture.height);
     }
@@ -2804,7 +2869,7 @@ $.Game_Map_setup = Game_Map.prototype.setup;
 Game_Map.prototype.setup = function(mapId) {
     this._groupListQJ = {};
     this.initProjectileDataQJ();
-    this._gridBodyQJ = QJ.SAT.box(0,0,['R',tileSize,tileSize])
+    this._gridBodyQJ = QJ.SAT.box(0,0,['R',tileSize,tileSize]);
     $.Game_Map_setup.apply(this,arguments);
     this.refreshMapBoxQJ();
     this.refreshUpdateBoxDataQJ();
@@ -2998,7 +3063,7 @@ Game_Character.prototype.screenShootXQJ = function() {
     return this.screenX();
 };
 Game_Character.prototype.screenShootYQJ = function() {
-    return this.screenY() - tileSize/2;
+    return this.screenY() - tileSize/2 + this.shiftY();//屏蔽掉上浮。
 };
 Game_Character.prototype.updateBoxBodyPositionQJ = function() {
     QJ.SAT.setPostion(this._boxBodyQJ,this.screenBoxXQJ(),this.screenBoxYQJ());
@@ -3253,7 +3318,9 @@ if (true) {
         d:null,
         an:0,
         p:null,
-        rb:0
+        rb:0,
+        r:null,
+        cb:null
     }
     let model1 = QJ.MPMZ.model[0];
     //Extra for no read directly.
@@ -3263,21 +3330,24 @@ if (true) {
             switch(value[0]) {
                 case 'PD':value[0] = QJ.calculateAngleByDirectionAngle($gamePlayer.direction());addValue = value[1]?value[1]:0;break;
                 case 'P' :value[0] = QJ.calculateAngleByTwoPointAngle(pos[0],pos[1],
-                            $gamePlayer.screenShootXQJ(),$gamePlayer.screenShootYQJ());addValue = value[1]?value[1]:0;break;
+                          $gamePlayer.screenShootXQJ(),$gamePlayer.screenShootYQJ());addValue = value[1]?value[1]:0;break;
                 case 'M' :value[0] = QJ.calculateAngleByTwoPointAngle(pos[0],pos[1],TouchInput.x,TouchInput.y);addValue = value[1]?value[1]:0;break;
                 case 'E' :eventData = value[1]==0?event:$gameMap.event(value[1]);
-                            value[0] = eventData?QJ.calculateAngleByTwoPointAngle(pos[0],pos[1],eventData.screenShootXQJ(),
-                                eventData.screenShootYQJ()):0;addValue = value[2]?value[2]:0;break;
+                          value[0] = eventData?QJ.calculateAngleByTwoPointAngle(pos[0],pos[1],eventData.screenShootXQJ(),
+                          eventData.screenShootYQJ()):0;addValue = value[2]?value[2]:0;break;
                 case 'ED' :eventData = value[1]==0?event:$gameMap.event(value[1]);
-                            value[0] = eventData?QJ.calculateAngleByDirectionAngle(eventData.direction()):0;addValue = value[2]?value[2]:0;break;
+                           value[0] = eventData?QJ.calculateAngleByDirectionAngle(eventData.direction()):0;addValue = value[2]?value[2]:0;break;
                 case 'G' :let id = QJ.MPMZ.getMinEventId(pos[0],pos[1],value[1]);
-                            eventData = id==0?event:$gameMap.event(id);
-                            value[0] = eventData?QJ.calculateAngleByTwoPointAngle(pos[0],pos[1],eventData.screenShootXQJ(),
-                                eventData.screenShootYQJ()):0;addValue = value[2]?value[2]:0;break;
+                          eventData = id==0?event:$gameMap.event(id);
+                          value[0] = eventData?QJ.calculateAngleByTwoPointAngle(pos[0],pos[1],eventData.screenShootXQJ(),
+                          eventData.screenShootYQJ()):0;addValue = value[2]?value[2]:0;break;
                 case 'S':value[0] = Number(eval(value[1]));addValue = value[2]?value[2]:0;break;
-                case 'C':value[0] = QJ.calculateAngleByTwoPointAngle(pos[0],pos[1],
-                            model1.posExtra(value[1],event),model1.posExtra(value[2],event));
-                            addValue = value[3]?value[3]:0;break;
+                case 'PO':let tarPos = model1.posExtra(value[1],event);
+                         value[0] = QJ.calculateAngleByTwoPointAngle(pos[0],pos[1],tarPos[0],tarPos[1]);
+                         addValue = value[2]?value[2]:0;break;
+                case 'B':let bulletData = $gameMap.bulletQJ(value[1]);
+                         value[0] = bulletData?bulletData.inheritRotation():0;
+                         addValue = value[2]?value[2]:0;break;
             }
             if (isNaN(value[0])) value[0] = 0;
             value[0]+=addValue;
@@ -3410,7 +3480,8 @@ if (true) {
                 bundleNumber:2,
                 anchorX:0.5,
                 anchorY:0.5,
-                synScale:false
+                synScale:false,
+                sheetSprite:null
             };            
             for (let j in i) list[j] = i[j];
             if (!list.img) continue;
@@ -3471,6 +3542,7 @@ if (true) {
             else if (i.t[0]=='Player') i.t[0] = 'P';
             else if (i.t[0]=='Bullet') i.t[0] = 'B';
             else if (i.t[0]=='EventPage') i.t[0] = 'EP';
+            else if (i.t[0]=='BulletExist') i.t[0] = 'BE';
             //================================
             if (!i.p||!(i.t[0]=='G'||i.t[0]=='P')) i.p = [0,true,true,true];
             else if (i.p.length==1) i.p = [i.p[0],true,true,true];
@@ -4886,7 +4958,7 @@ if (QJ.MPMZ.isMV) {
                     else if (dataType==2) num = Number(detail[1])*Math.PI/180;
                     this.d[this.m] = num;
                     if (noFadeCopy) {
-                        for (let i=this.m,ll=Number(detail[0]);i<ll;i++) {
+                        for (let i=this.m,ll=i+Number(detail[0]);i<ll;i++) {
                             this.d[i] = num;
                         }
                     }
