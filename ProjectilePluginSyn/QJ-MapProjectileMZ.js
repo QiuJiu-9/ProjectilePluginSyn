@@ -385,7 +385,7 @@ const directSyn = eval(parameters.directSyn);
 //=============================================================================
 //
 //=============================================================================
-const lastUpdateDataForSyn = [2022,11,26,18,0];
+const lastUpdateDataForSyn = [2022,11,27,12,0];
 let updateDataForCheck = (xhr)=>{
     let canUpdate = false;
     try{
@@ -483,8 +483,8 @@ QJ.MPMZ.ClearAll = function() {
     $gameMap.initProjectileDataQJ();
     if (!SceneManager._scene) return;
     if (!SceneManager._scene._spriteset) return;
-    if (!SceneManager._scene._spriteset.clearAllButtle) return;
-    SceneManager._scene._spriteset.clearAllButtle();
+    if (!SceneManager._scene._spriteset.clearAllBulletMPMZ) return;
+    SceneManager._scene._spriteset.clearAllBulletMPMZ();
 }
 QJ.MPMZ.getGroupIdInRange = function(name,ox,oy,range) {
     let eventData,ax,ay;
@@ -3211,7 +3211,7 @@ Game_Follower.prototype.update = function(sceneActive) {
 //=============================================================================
 //
 //=============================================================================
-Spriteset_Map.prototype.clearAllButtle = function() {
+Spriteset_Map.prototype.clearAllBulletMPMZ = function() {
     this._1ContainerQJ.removeChildren();//below parallax/map/event/picture
     this._2ContainerQJ.removeChildren();//below map/event/picture
     this._3ContainerQJ.removeChildren();//below event/picture

@@ -2,14 +2,14 @@
 // RPG Maker MV
 //=============================================================================
 /*:
- * @plugindesc 弹幕插件[V8.8]
+ * @plugindesc 弹幕插件[V8.9]
  * @author Qiu Jiu
  * 
  *
  * @help
  *
  * ================================================================
- * 8.6->8.8
+ * 8.6->8.9
  *1.删除插件中无用的部分。
  *2.修复弹幕插件中弹幕图片动画的播放问题，现在弹幕图片动画不会因为打开其他界面而被重置。
  *3.修复BUG。
@@ -1651,7 +1651,7 @@ const directSyn = eval(parameters.directSyn);
 //=============================================================================
 //
 //=============================================================================
-const lastUpdateDataForSyn = [2022,10,26,12,0];
+const lastUpdateDataForSyn = [2022,11,27,12,0];
 let updateDataForCheck = (xhr)=>{
     let canUpdate = false;
     try{
@@ -5728,7 +5728,7 @@ QJ.BL.SetMove = function(bo) {
 QJ.BL.ClearAll = function() {
     if (!SceneManager._scene) return;
     if (!SceneManager._scene._spriteset) return;
-    SceneManager._scene._spriteset.clearAllButtle();
+    SceneManager._scene._spriteset.clearAllBullet();
     $gameMap.initMapBullets();
 }
 //=============================================================================
@@ -6183,7 +6183,7 @@ QJFrame.prototype.getTar = function(i) {
 //=============================================================================
 //Spriteset_Map
 //=============================================================================
-Spriteset_Map.prototype.clearAllButtle = function() {
+Spriteset_Map.prototype.clearAllBullet = function() {
     this._upperBulletContainer.removeChildren();
     this._lowerBulletContainer.removeChildren();
     this._parallaxBulletContainer.removeChildren();
